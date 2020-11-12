@@ -1,7 +1,8 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from "vscode";
-import * as execa from "execa";
+import * as fs from "fs";
+import { start } from "repl";
 
 const COMMAND = "commands-as-source-actions.argbash";
 
@@ -42,16 +43,33 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand(COMMAND, async (taskName) => {
       // The code you place here will be executed every time your command is executed
 
-      console.log(`Trying to execute the task: ${taskName}`);
+      const document = vscode.window.activeTextEditor?.document;
+      // if there is no file open, no point into saving it
+      if (!document) {
+        return;
+      }
 
+      const fileName = document.fileName;
+      const oldContent = fs.readFileSync(fileName).toString();
+      const editorContent = document.getText();
+
+      // save the file temporarily
+      fs.writeFileSync(fileName, editorContent);
+
+      // execute the task, this can apply changes on the file
       const task = (await getTask(taskName))[0];
       await executeTask(task);
 
-      vscode.commands.executeCommand(
-        "workbench.action.files.saveWithoutFormatting"
-      );
-      // Display a message box to the user
-      vscode.window.showInformationMessage("Done!");
+      // reload current document with the contents of the file
+      const newContent = fs.readFileSync(fileName).toString();
+      await vscode.window.activeTextEditor?.edit((edit) => {
+        const startPosition = document.lineAt(0).range.start;
+        const endPosition = document.lineAt(document.lineCount - 1).range.end;
+        edit.replace(new vscode.Range(startPosition, endPosition), newContent);
+      });
+
+      // restore the file to VSCode's last known state
+      fs.writeFileSync(fileName, oldContent);
     })
   );
 
@@ -85,3 +103,7 @@ class CommandActionProvider implements vscode.CodeActionProvider {
 
 // this method is called when your extension is deactivated
 export function deactivate() {}
+
+async function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
