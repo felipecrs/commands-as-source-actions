@@ -1,0 +1,9 @@
+{
+  "[shellscript]": {
+    "editor.defaultFormatter": "foxundermoon.shell-format",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source": true
+    }
+  }
+}
